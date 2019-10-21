@@ -274,8 +274,7 @@ class FishersExactTest(object):
 import sys, os, time, random, getopt, operator, string, errno
 try: import pysam
 except: sys.exit('Pysam module not found.')
-from multiprocessing import Process, Queue
-from Queue import Empty
+import concurrent.futures
 try:
     from fisher import pvalue
     exfisher=1
@@ -1079,7 +1078,7 @@ def addPvalue(myinput2):
 def do_work(q):
 	while True:
 		try:
-			x=q.get(block=False)
+			x=q
 			exploreBAM(x)
 		except Empty:
 			break
@@ -1087,20 +1086,19 @@ def do_work(q):
 def do_work2(q):
 	while True:
 		try:
-			x=q.get(block=False)
+			x=q
 			addPvalue(x)
 		except Empty:
 			break
 
-work_queue = Queue()
+work_queue = []
 for i in chrs:
 	strinput=i+'$'+bamfile
-	work_queue.put(strinput)
-processes=[Process(target=do_work, args=(work_queue,)) for i in range(len(chrs))]
-for t in processes:
-	t.start()
-for t in processes:
-	t.join()
+	work_queue.append(strinput)
+
+with concurrent.futures.ProcessPoolExecutor(max_workers=NCPU) as executor:
+  executor.map(do_work,work_queue)
+
 time.sleep(0.5)
 #
 if not custsub:
@@ -1118,17 +1116,16 @@ if not custsub:
 	o.write(str(allsubs)+'\n')
 	o.close()
 #
-work_queue2 = Queue()
+work_queue2 = []
 if not custsub: inputsubs=outdisto
 else: inputsubs=custfile
 for i in chrs:
 	strinput=inputsubs+'$'+os.path.join(outfolder,'table_%s_%s' %(i,pid))+'$'+os.path.join(outfolder,'outTable_%s_%s' %(i,pid))
-	work_queue2.put(strinput)
-processes=[Process(target=do_work2, args=(work_queue2,)) for i in range(len(chrs))]
-for tt in processes:
-	tt.start()
-for tt in processes:
-	tt.join()
+	work_queue2.append(strinput)
+
+with concurrent.futures.ProcessPoolExecutor(max_workers=NCPU) as executor:
+  executor.map(do_work2,work_queue2)
+
 time.sleep(0.5)
 
 head='Region\tPosition\tReference\tStrand\tCoverage-q%i\tMeanQ\tBaseCount[A,C,G,T]\tAllSubs\tFrequency\tPvalue\n' %(MQUAL)
