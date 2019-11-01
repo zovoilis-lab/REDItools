@@ -274,9 +274,9 @@ class FishersExactTest(object):
 import sys, os, time, random, getopt, operator, string, errno
 try: import pysam
 except: sys.exit('Pysam module not found.')
-from multiprocessing import Process, Queue
+from multiprocessing import Queue, Manager
 from Queue import Empty
-from concurrent.futures import ProcessPoolExecutor
+import concurrent.futures
 try:
     from fisher import pvalue
     exfisher=1
@@ -1050,7 +1050,6 @@ def exploreBAM(myinput):
 	if uann: tabix.close()
 	if expos: extabix.close()
 	sys.stderr.write('Job completed for region: %s\n'%(chr))
-	return
 
 def addPvalue(myinput2):
 	inputs=myinput2.split('$')
@@ -1077,7 +1076,6 @@ def addPvalue(myinput2):
 		l.append(pval)
 		o.write('\t'.join(l)+'\n')
 	o.close()
-	return
 
 def do_work(q):
 	while True:
@@ -1096,22 +1094,15 @@ def do_work2(q):
 			break
 
 def run_concurrently( func, queue , NCPU ):
-	start = time.time()
-	cpus  = NCPU
+	cpus  = NCPU-1
 	qsize = queue.qsize()
 	procs = []
-	with ProcessPoolExecutor( cpus ) as executor:
-		for n in xrange( qsize ):
-			proc = Process( target=func, args=( queue,) )
-			procs.append( proc )
-			proc.start()
-			time.sleep( 0.05 )
-		for proc in procs:
-			proc.join()
-			time.sleep( 0.05 )
-	return
+	with concurrent.futures.ProcessPoolExecutor(max_workers=cpus) as executor:
+        	futures = [executor.submit(func, queue) for n in xrange(qsize)]
+	time.sleep(0.005)
 
-work_queue = Queue()
+manager = Manager() #multiprocessing manager
+work_queue = manager.Queue()
 for i in chrs:
 	strinput=i+'$'+bamfile
 	work_queue.put(strinput)
@@ -1138,7 +1129,8 @@ if not custsub:
 	o.write(str(allsubs)+'\n')
 	o.close()
 #
-work_queue2 = Queue()
+manager = Manager()
+work_queue2 = manager.Queue()
 if not custsub: inputsubs=outdisto
 else: inputsubs=custfile
 for i in chrs:
