@@ -274,7 +274,9 @@ class FishersExactTest(object):
 import sys, os, time, random, getopt, operator, string, errno
 try: import pysam
 except: sys.exit('Pysam module not found.')
-import concurrent.futures
+from multiprocessing import Process, Queue
+from Queue import Empty
+from concurrent.futures import ProcessPoolExecutor
 try:
     from fisher import pvalue
     exfisher=1
@@ -1048,6 +1050,7 @@ def exploreBAM(myinput):
 	if uann: tabix.close()
 	if expos: extabix.close()
 	sys.stderr.write('Job completed for region: %s\n'%(chr))
+	return
 
 def addPvalue(myinput2):
 	inputs=myinput2.split('$')
@@ -1074,11 +1077,12 @@ def addPvalue(myinput2):
 		l.append(pval)
 		o.write('\t'.join(l)+'\n')
 	o.close()
-	
+	return
+
 def do_work(q):
 	while True:
 		try:
-			x=q
+			x=q.get(block=False)
 			exploreBAM(x)
 		except Empty:
 			break
@@ -1086,20 +1090,38 @@ def do_work(q):
 def do_work2(q):
 	while True:
 		try:
-			x=q
+			x=q.get(block=False)
 			addPvalue(x)
 		except Empty:
 			break
 
-work_queue = []
+def run_concurrently( func, queue , NCPU ):
+	start = time.time()
+	cpus  = NCPU
+	qsize = queue.qsize()
+	procs = []
+	with ProcessPoolExecutor( cpus ) as executor:
+		for n in xrange( qsize ):
+			proc = Process( target=func, args=( queue,) )
+			procs.append( proc )
+			proc.start()
+			time.sleep( 0.05 )
+		for proc in procs:
+			proc.join()
+			time.sleep( 0.05 )
+	return
+
+work_queue = Queue()
 for i in chrs:
 	strinput=i+'$'+bamfile
-	work_queue.append(strinput)
+	work_queue.put(strinput)
 
-with concurrent.futures.ProcessPoolExecutor(max_workers=NCPU) as executor:
-  executor.map(do_work,work_queue)
 
-time.sleep(0.5)
+run_concurrently(do_work, work_queue, NCPU)
+
+time.sleep(0.05)
+
+
 #
 if not custsub:
 	sys.stderr.write('Merging substitutions.\n')
@@ -1116,15 +1138,15 @@ if not custsub:
 	o.write(str(allsubs)+'\n')
 	o.close()
 #
-work_queue2 = []
+work_queue2 = Queue()
 if not custsub: inputsubs=outdisto
 else: inputsubs=custfile
 for i in chrs:
 	strinput=inputsubs+'$'+os.path.join(outfolder,'table_%s_%s' %(i,pid))+'$'+os.path.join(outfolder,'outTable_%s_%s' %(i,pid))
-	work_queue2.append(strinput)
+	work_queue2.put(strinput)
 
-with concurrent.futures.ProcessPoolExecutor(max_workers=NCPU) as executor:
-  executor.map(do_work2,work_queue2)
+
+run_concurrently(do_work2, work_queue2, NCPU)
 
 time.sleep(0.5)
 
