@@ -1,5 +1,5 @@
 #Download base image centos latest 
-FROM centos
+FROM ppc64le/centos as build
 
 #Dockerfile Mantainer
 LABEL mantainer="clalogiudice@gmail.com"
@@ -8,7 +8,7 @@ LABEL mantainer="clalogiudice@gmail.com"
 RUN yum update -y && yum clean all
 
 #Install git, wget and nano package
-RUN yum -y install git wget nano && yum clean all
+RUN yum -y install git wget nano python2 && yum clean all
 
 #Clone Nature_protocol Git repository
 RUN git clone https://github.com/BioinfoUNIBA/REDItools
@@ -16,6 +16,7 @@ RUN git clone https://github.com/BioinfoUNIBA/REDItools
 WORKDIR "/REDItools/NPscripts/" 
 
 #Install miniconda with conda packages required by the nature_protocol
+RUN ln -s /usr/bin/python2 /usr/bin/python
 RUN chmod +x conda_pckg_installer_docker.py
 RUN ./conda_pckg_installer_docker.py
 ENV PATH /miniconda2/bin:$PATH
