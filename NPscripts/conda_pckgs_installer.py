@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import os, commands
+import os, subprocess
 
 def install_conda_packages(conda_bin):
 	"""Installs conda packages required by the protocol"""
@@ -29,7 +29,7 @@ def install_conda_packages(conda_bin):
         star==2.7.0f wget==1.20.1')
 	return install_cmd
 
-if commands.getstatusoutput('conda')[0] != 0:
+if subprocess.getstatusoutput('conda')[0] != 0:
 	cwd = os.getcwd()
 	installation_path = cwd + '/opt'
 	if not os.path.exists(installation_path):
@@ -50,9 +50,9 @@ if commands.getstatusoutput('conda')[0] != 0:
 	os.system(cmd + ' create -n nature_protocol python=2.7 anaconda')
 	install_conda_packages(cmd)
 	print("Your conda environment has been succesfully created, now close your terminal and open a new one." + "\n" + \
-        "Type in order:" + "\n" + \
-        "source " + home_folder + "/.bashrc" + "\n" + \
-        "conda activate nature_protocol")
+	      "Type in order:" + "\n" + \
+	      "source " + home_folder + "/.bashrc" + "\n" + \
+	      "conda activate nature_protocol")
 else:
         home_folder = os.path.expanduser('~')
         cmd = home_folder + '/miniconda2/bin/conda'
@@ -61,8 +61,8 @@ else:
         os.system(cmd + ' config --add channels conda-forge')
         os.system(cmd + ' create -n nature_protocol python=2.7 anaconda')
         install_conda_packages(cmd)
-	print("Your conda environment has been succesfully created, now close your terminal and open a new one." + "\n" + \
-        "Type in order:" + "\n" + \
-        "source " + home_folder + "/.bashrc" + "\n" + \
-        "conda activate nature_protocol")
+        print("Your conda environment has been succesfully created, now close your terminal and open a new one." + "\n" + 
+		"Type in order:" + "\n" + \
+		"source " + home_folder + "/.bashrc" + "\n" + \
+		"conda activate nature_protocol")
 
